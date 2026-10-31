@@ -1,0 +1,11 @@
+# The outputed audit report
+audit.json
+
+# Python cache files
+__pycache__/
+*.pyc
+
+# Virtual environments
+.venv/
+venv/
+env/
