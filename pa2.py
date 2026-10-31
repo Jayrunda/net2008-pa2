@@ -107,3 +107,39 @@ def parse_devices(root):
             devices.append(device)
 
     return devices, skipped
+
+    def violations(self, policy):
+        """Return all policy violations for this device."""
+        violations = []
+        min_os = policy.get("min_os", {})
+
+        if self.role not in min_os:
+            violations.append({
+                "device": self.device_id,
+                "type": "unknown_role",
+                "role": self.role,
+            })
+        elif self.is_outdated(min_os[self.role]):
+            violations.append({
+                "device": self.device_id,
+                "type": "os_outdated",
+                "found": self.os_version,
+                "required": min_os[self.role],
+            })
+
+        if policy.get("require_owner", False) and not self.has_owner():
+            violations.append({
+                "device": self.device_id,
+                "type": "missing_owner",
+            })
+
+        max_down = policy.get("max_down_interfaces")
+        down_count = self.down_interface_count()
+        if max_down is not None and down_count > max_down:
+            violations.append({
+                "device": self.device_id,
+                "type": "too_many_down",
+                "down": down_count,
+            })
+
+        return violations
