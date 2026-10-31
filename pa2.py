@@ -27,3 +27,14 @@ class Device:
         self.owner = owner
         self.interfaces = interfaces
 
+	def down_interface_count(self):
+"""Return the number of interfaces whose status is down."""
+        	return sum(1 for status in self.interfaces if status == "down")
+
+    	def has_owner(self):
+"""Return True when the device has an owner."""
+        	return self.owner != ""
+
+    	def is_outdated(self, required_version):
+"""Return True when this device's OS is older than required_version."""
+        	return version_tuple(self.os_version) < version_tuple(required_version)	
