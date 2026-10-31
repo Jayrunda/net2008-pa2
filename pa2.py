@@ -68,3 +68,42 @@ def load_inventory(path):
         raise InputFileError(f"Invalid XML file: {path}: {error}")
 
     return tree.getroot()
+
+def parse_device(element):
+    """Convert one XML device element into a Device object, or None if skipped."""
+    device_id = element.get("id")
+
+    if device_id is None:
+        return None
+
+    owner_element = element.find("owner")
+    owner = "" if owner_element is None else (owner_element.text or "").strip()
+
+    interfaces = [
+        interface.get("status", "")
+        for interface in element.findall("interface")
+    ]
+
+    return Device(
+        device_id=device_id,
+        role=element.get("role", ""),
+        os_version=element.get("os", ""),
+        owner=owner,
+        interfaces=interfaces,
+    )
+
+
+def parse_devices(root):
+    """Parse all device elements, separating kept devices from skipped devices."""
+    devices = []
+    skipped = 0
+
+    for element in root.findall("device"):
+        device = parse_device(element)
+
+        if device is None:
+            skipped += 1
+        else:
+            devices.append(device)
+
+    return devices, skipped
