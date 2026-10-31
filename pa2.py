@@ -143,3 +143,42 @@ def parse_devices(root):
             })
 
         return violations
+
+def build_audit(devices, skipped, policy, site):
+    """Build the complete audit report dictionary."""
+    roles = {}
+    interfaces = {"up": 0, "down": 0, "other": 0}
+    violations = []
+    compliant = []
+
+    for device in devices:
+        roles[device.role] = roles.get(device.role, 0) + 1
+
+        for status in device.interfaces:
+            if status in interfaces:
+                interfaces[status] += 1
+            else:
+                interfaces["other"] += 1
+
+        device_violations = device.violations(policy)
+        violations.extend(device_violations)
+
+        if not device_violations:
+            compliant.append(device.device_id)
+
+    return {
+        "site": site,
+        "total_devices": len(devices),
+        "skipped_devices": skipped,
+        "roles": roles,
+        "interfaces": interfaces,
+        "violations": violations,
+        "compliant": sorted(compliant),
+    }
+
+
+def write_report(report, output_path):
+    """Write the audit report to a JSON file."""
+    with output_path.open("w", encoding="utf-8") as file:
+        json.dump(report, file, indent=2)
+        file.write("\n")
