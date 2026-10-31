@@ -38,3 +38,22 @@ class Device:
     	def is_outdated(self, required_version):
 """Return True when this device's OS is older than required_version."""
         	return version_tuple(self.os_version) < version_tuple(required_version)	
+
+
+def load_yaml_policy(path):
+    """Open and validate the YAML compliance policy."""
+    try:
+        with path.open("r", encoding="utf-8") as file:
+            policy = yaml.safe_load(file)
+    except FileNotFoundError:
+        raise InputFileError(f"File not found: {path}")
+    except yaml.YAMLError as error:
+        raise InputFileError(f"Invalid YAML file: {path}: {error}")
+
+    if policy is None:
+        return {}
+
+    if not isinstance(policy, dict):
+        raise InputFileError(f"Policy is not a mapping: {path}")
+
+    return policy
