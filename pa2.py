@@ -57,3 +57,14 @@ def load_yaml_policy(path):
         raise InputFileError(f"Policy is not a mapping: {path}")
 
     return policy
+
+def load_inventory(path):
+    """Load and validate the XML inventory, returning its root element."""
+    try:
+        tree = ET.parse(path)
+    except FileNotFoundError:
+        raise InputFileError(f"File not found: {path}")
+    except ET.ParseError as error:
+        raise InputFileError(f"Invalid XML file: {path}: {error}")
+
+    return tree.getroot()
