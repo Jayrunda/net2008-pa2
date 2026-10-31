@@ -15,3 +15,15 @@ def version_tuple(version):
 """ Functino to turn verison numbers with dots into a tuple of ints"""
 	return tuple(int(part) for part in version.split("."))
 
+class Device:
+	"""The device class my script will parse from XML"""
+	def __init__(self,id, role, os, owner, interfaces):
+	
+
+"""Device attributes and interface statuses."""
+        self.device_id = device_id
+        self.role = role
+        self.os_version = os_version
+        self.owner = owner
+        self.interfaces = interfaces
+
