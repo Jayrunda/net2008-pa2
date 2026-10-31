@@ -9,35 +9,69 @@ import yaml
 import xml.etree.ElementTree as ET
 
 class InputError(Exception):
-"""Raises when you put in an unreadable file for the script or if the input is missing"""
+    """Raises when you put in an unreadable file for the script or if the input is missing"""
 
 def version_tuple(version):
-""" Functino to turn verison numbers with dots into a tuple of ints"""
+	""" Functino to turn verison numbers with dots into a tuple of ints"""
 	return tuple(int(part) for part in version.split("."))
 
 class Device:
-	"""The device class my script will parse from XML"""
-	def __init__(self,id, role, os, owner, interfaces):
-	
-
-"""Device attributes and interface statuses."""
+    """The device class my script will parse from XML"""
+    def __init__(self, device_id, role, os_version, owner, interfaces):
+        """Device attributes and interface statuses."""
         self.device_id = device_id
         self.role = role
         self.os_version = os_version
         self.owner = owner
         self.interfaces = interfaces
 
-	def down_interface_count(self):
-"""Return the number of interfaces whose status is down."""
-        	return sum(1 for status in self.interfaces if status == "down")
+    def down_interface_count(self):
+        """Return the number of interfaces whose status is down."""
+        return sum(1 for status in self.interfaces if status == "down")
 
-    	def has_owner(self):
-"""Return True when the device has an owner."""
-        	return self.owner != ""
+    def has_owner(self):
+        """Return True when the device has an owner."""
+        return self.owner != ""
 
-    	def is_outdated(self, required_version):
-"""Return True when this device's OS is older than required_version."""
-        	return version_tuple(self.os_version) < version_tuple(required_version)	
+    def is_outdated(self, required_version):
+        """Return True when this device's OS is older than required_version."""
+        return version_tuple(self.os_version) < version_tuple(required_version)
+
+    def violations(self, policy):
+        """Return all policy violations for this device."""
+        violations = []
+        min_os = policy.get("min_os", {})
+
+        if self.role not in min_os:
+            violations.append({
+                "device": self.device_id,
+                "type": "unknown_role",
+                "role": self.role,
+            })
+        elif self.is_outdated(min_os[self.role]):
+            violations.append({
+                "device": self.device_id,
+                "type": "os_outdated",
+                "found": self.os_version,
+                "required": min_os[self.role],
+            })
+
+        if policy.get("require_owner", False) and not self.has_owner():
+            violations.append({
+                "device": self.device_id,
+                "type": "missing_owner",
+            })
+
+        max_down = policy.get("max_down_interfaces")
+        down_count = self.down_interface_count()
+        if max_down is not None and down_count > max_down:
+            violations.append({
+                "device": self.device_id,
+                "type": "too_many_down",
+                "down": down_count,
+            })
+
+        return violations
 
 
 def load_yaml_policy(path):
@@ -46,15 +80,15 @@ def load_yaml_policy(path):
         with path.open("r", encoding="utf-8") as file:
             policy = yaml.safe_load(file)
     except FileNotFoundError:
-        raise InputFileError(f"File not found: {path}")
+        raise InputError(f"File not found: {path}")
     except yaml.YAMLError as error:
-        raise InputFileError(f"Invalid YAML file: {path}: {error}")
+        raise InputError(f"Invalid YAML file: {path}: {error}")
 
     if policy is None:
         return {}
 
     if not isinstance(policy, dict):
-        raise InputFileError(f"Policy is not a mapping: {path}")
+        raise InputError(f"Policy is not a mapping: {path}")
 
     return policy
 
@@ -63,9 +97,9 @@ def load_inventory(path):
     try:
         tree = ET.parse(path)
     except FileNotFoundError:
-        raise InputFileError(f"File not found: {path}")
+        raise InputError(f"File not found: {path}")
     except ET.ParseError as error:
-        raise InputFileError(f"Invalid XML file: {path}: {error}")
+        raise InputError(f"Invalid XML file: {path}: {error}")
 
     return tree.getroot()
 
@@ -107,42 +141,6 @@ def parse_devices(root):
             devices.append(device)
 
     return devices, skipped
-
-    def violations(self, policy):
-        """Return all policy violations for this device."""
-        violations = []
-        min_os = policy.get("min_os", {})
-
-        if self.role not in min_os:
-            violations.append({
-                "device": self.device_id,
-                "type": "unknown_role",
-                "role": self.role,
-            })
-        elif self.is_outdated(min_os[self.role]):
-            violations.append({
-                "device": self.device_id,
-                "type": "os_outdated",
-                "found": self.os_version,
-                "required": min_os[self.role],
-            })
-
-        if policy.get("require_owner", False) and not self.has_owner():
-            violations.append({
-                "device": self.device_id,
-                "type": "missing_owner",
-            })
-
-        max_down = policy.get("max_down_interfaces")
-        down_count = self.down_interface_count()
-        if max_down is not None and down_count > max_down:
-            violations.append({
-                "device": self.device_id,
-                "type": "too_many_down",
-                "down": down_count,
-            })
-
-        return violations
 
 def build_audit(devices, skipped, policy, site):
     """Build the complete audit report dictionary."""
