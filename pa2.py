@@ -12,8 +12,8 @@ class InputError(Exception):
     """Raises when you put in an unreadable file for the script or if the input is missing"""
 
 def version_tuple(version):
-	""" Functino to turn verison numbers with dots into a tuple of ints"""
-	return tuple(int(part) for part in version.split("."))
+    """Turn a dotted version string into a tuple of integers."""
+    return tuple(int(part) for part in version.split("."))
 
 class Device:
     """The device class my script will parse from XML"""
@@ -73,7 +73,6 @@ class Device:
 
         return violations
 
-
 def load_yaml_policy(path):
     """Open and validate the YAML compliance policy."""
     try:
@@ -126,7 +125,6 @@ def parse_device(element):
         interfaces=interfaces,
     )
 
-
 def parse_devices(root):
     """Parse all device elements, separating kept devices from skipped devices."""
     devices = []
@@ -142,40 +140,7 @@ def parse_devices(root):
 
     return devices, skipped
 
-def build_audit(devices, skipped, policy, site):
-    """Build the complete audit report dictionary."""
-    roles = {}
-    interfaces = {"up": 0, "down": 0, "other": 0}
-    violations = []
-    compliant = []
 
-    for device in devices:
-        roles[device.role] = roles.get(device.role, 0) + 1
-
-        for status in device.interfaces:
-            if status in interfaces:
-                interfaces[status] += 1
-            else:
-                interfaces["other"] += 1
-
-        device_violations = device.violations(policy)
-        violations.extend(device_violations)
-
-        if not device_violations:
-            compliant.append(device.device_id)
-
-    return {
-        "site": site,
-        "total_devices": len(devices),
-        "skipped_devices": skipped,
-        "roles": roles,
-        "interfaces": interfaces,
-        "violations": violations,
-        "compliant": sorted(compliant),
-    }
-
-
-def write_report(report, output_path):
     """Write the audit report to a JSON file."""
     with output_path.open("w", encoding="utf-8") as file:
         json.dump(report, file, indent=2)
@@ -213,9 +178,39 @@ def build_audit(devices, skipped, policy, site):
         "compliant": sorted(compliant),
     }
 
-
 def write_report(report, output_path):
     """Write the audit report to a JSON file."""
     with output_path.open("w", encoding="utf-8") as file:
         json.dump(report, file, indent=2)
         file.write("\n")
+
+def main(argv):
+    """Run the compliance audit from command-line arguments."""
+    if len(argv) != 3:
+        print("usage: python pa2.py DEVICES.xml POLICY.yaml", file=sys.stderr)
+        return 2
+
+    devices_path = Path(argv[1])
+    policy_path = Path(argv[2])
+    output_path = Path("audit.json")
+
+    try:
+        root = load_inventory(devices_path)
+        policy = load_yaml_policy(policy_path)
+        devices, skipped = parse_devices(root)
+        report = build_audit(devices, skipped, policy, root.get("site"))
+        write_report(report, output_path)
+    except InputError as error:
+        print(f"error: {error}", file=sys.stderr)
+        return 1
+
+    print(
+        f"Audit complete: {report['total_devices']} devices checked, "
+        f"{len(report['violations'])} violations, "
+        f"{len(report['compliant'])} compliant. Report: {output_path}"
+    )
+    return 0
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv))
+
